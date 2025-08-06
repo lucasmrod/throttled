@@ -182,6 +182,65 @@ func TestRateLimitUpdateFailuresWithRetryLimitSetToTwo(t *testing.T) {
 	assert.EqualError(t, err, "Failed to store updated rate limit data for key foo after 2 attempts")
 }
 
+func TestRateLimitPeekReturnsRetryAfter(t *testing.T) {
+	period := 1 * time.Second
+	rq := throttled.RateQuota{
+		MaxRate:  throttled.PerDuration(3, period),
+		MaxBurst: 0,
+	}
+	mst, err := memstore.NewCtx(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	st := testStore{store: mst}
+	rl, err := throttled.NewGCRARateLimiterCtx(&st, rq)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	st.clock = time.Now()
+	ctx := context.Background()
+	limited, result, err := rl.RateLimitCtx(ctx, "foo", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if limited {
+		t.Errorf("expected Limited to be %t but got %t", false, limited)
+	}
+	if result.RetryAfter != -1 {
+		t.Errorf("expected RetryAfter to be -1 but got %s", result.RetryAfter)
+	}
+	limited, result, err = rl.RateLimitCtx(ctx, "foo", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !limited {
+		t.Errorf("expected Limited to be %t but got %t", true, limited)
+	}
+	if result.RetryAfter <= 0 {
+		t.Errorf("expected RetryAfter to be bigger than 0 but got %s", result.RetryAfter)
+	}
+	limitedRetryAfter := result.RetryAfter
+
+	// Now just "peek" and get the RetryAfter.
+	limited, result, err = rl.RateLimitCtx(ctx, "foo", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Peeking returns limited==false.
+	if limited {
+		t.Errorf("expected Limited to be %t but got %t", false, limited)
+	}
+	// Peeking returns the remaining amount (which should be 0 because it's limited).
+	if result.Remaining != 0 {
+		t.Errorf("expected Remaining to be %d but got %d", 0, result.Remaining)
+	}
+	if result.RetryAfter != limitedRetryAfter {
+		t.Errorf("expected RetryAfter for peeking to be the same as before but got %s", result.RetryAfter)
+	}
+}
+
 func BenchmarkRateLimit(b *testing.B) {
 	limit := 5
 	rq := throttled.RateQuota{MaxRate: throttled.PerSec(1000), MaxBurst: limit - 1}

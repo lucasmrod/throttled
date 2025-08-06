@@ -205,6 +205,13 @@ func (g *GCRARateLimiterCtx) RateLimitCtx(ctx context.Context, key string, quant
 			tat = time.Unix(0, tatVal)
 		}
 
+		origQuantity := quantity
+
+		// When called with quantity 0 we simulate a call with quantity=1 to calculate a RetryAfter.
+		if origQuantity == 0 {
+			quantity = 1
+		}
+
 		increment := time.Duration(quantity) * g.emissionInterval
 		if now.After(tat) {
 			newTat = now.Add(increment)
@@ -219,8 +226,18 @@ func (g *GCRARateLimiterCtx) RateLimitCtx(ctx context.Context, key string, quant
 				rlc.RetryAfter = -diff
 				ttl = tat.Sub(now)
 			}
-			limited = true
-			break
+			if origQuantity != 0 {
+				limited = true
+				break
+			}
+		}
+
+		if origQuantity == 0 {
+			if now.After(tat) {
+				newTat = now
+			} else {
+				newTat = tat
+			}
 		}
 
 		ttl = newTat.Sub(now)
