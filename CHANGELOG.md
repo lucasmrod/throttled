@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 2.15.0 - 2025-08-23
+* [#108](https://github.com/throttled/throttled/pull/108) Return `RetryAfter` when peeking
+
 ## 2.14.0 - 2025-08-22
 * [#110](https://github.com/throttled/throttled/pull/110) Setup minimum bound to Go 1.18
 
