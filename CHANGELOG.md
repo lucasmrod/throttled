@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 2.14.0 - 2025-08-22
+* [#110](https://github.com/throttled/throttled/pull/110) Setup minimum bound to Go 1.18
+
 ## 2.13.0 - 2025-01-23
 * [#106](https://github.com/throttled/throttled/pull/106) Use the `RedigoPool` interface in `redigostore.NewCtx`
 
